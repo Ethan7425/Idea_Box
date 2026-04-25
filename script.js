@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyXfP3RMrSxj_hbfBqLNhq6Im8AeK6sNofXhYdpGQVXIW2Cl173uT0owFswu9qMstnK/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyczq8ITCbtgZ56YU1uOGfCghDQeHTBh6id8SnhdND32tMZCJZFdH2A4jaKBl5Bj9ji/exec";
 const MAX_IDEA_LENGTH = 300;
 const SUBMISSION_COOLDOWN_MS = 4000;
 
@@ -29,6 +29,7 @@ const translations = {
     successSaved: "Merci, votre idee a ete ajoutee avec succes.",
     successLocal:
       "Votre idee apparait bien ici, mais l'enregistrement Google Sheets a echoue. Verifiez l'URL Apps Script.",
+    backendErrorPrefix: "Erreur Google Sheets : ",
     errorIdeaRequired: "Merci d'ecrire une idee avant d'envoyer.",
     errorIdeaTooLong: "Merci de limiter votre idee a 300 caracteres.",
     errorGeneric:
@@ -62,6 +63,7 @@ const translations = {
     successSaved: "Thank you, your idea was saved successfully.",
     successLocal:
       "Your idea is shown here, but saving to Google Sheets failed. Check the Apps Script URL.",
+    backendErrorPrefix: "Google Sheets error: ",
     errorIdeaRequired: "Please write an idea before submitting.",
     errorIdeaTooLong: "Please keep your idea within 300 characters.",
     errorGeneric: "Unable to send right now. Please try again shortly.",
@@ -233,6 +235,7 @@ async function submitIdea(event) {
   setFormMessage("", "");
 
   let savedRemotely = false;
+  let remoteErrorMessage = "";
 
   try {
     if (SCRIPT_URL.includes("PASTE_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE")) {
@@ -242,12 +245,20 @@ async function submitIdea(event) {
     const response = await fetch(SCRIPT_URL, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain;charset=utf-8",
+        Accept: "application/json",
       },
       body: JSON.stringify({ name, idea, date }),
     });
 
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      throw new Error(responseText || "Invalid response from Apps Script");
+    }
 
     if (!response.ok || !result.success) {
       throw new Error(result.message || "Request failed");
@@ -256,6 +267,7 @@ async function submitIdea(event) {
     savedRemotely = true;
   } catch (error) {
     console.error(error);
+    remoteErrorMessage = error.message || getText("errorGeneric");
   } finally {
     state.lastSubmissionAt = Date.now();
     showConfirmationCard({
@@ -263,7 +275,9 @@ async function submitIdea(event) {
       idea,
       date,
       successMessage: savedRemotely ? getText("successSaved") : "",
-      warningMessage: savedRemotely ? "" : getText("successLocal"),
+      warningMessage: savedRemotely
+        ? ""
+        : `${getText("successLocal")} ${getText("backendErrorPrefix")}${remoteErrorMessage}`,
     });
 
     elements.form.reset();
@@ -272,7 +286,12 @@ async function submitIdea(event) {
 
     elements.submitButton.disabled = false;
     elements.submitButton.textContent = originalSubmitText;
-    setFormMessage(savedRemotely ? getText("cooldownMessage") : getText("errorGeneric"), savedRemotely ? "success" : "warning");
+    setFormMessage(
+      savedRemotely
+        ? getText("cooldownMessage")
+        : `${getText("backendErrorPrefix")}${remoteErrorMessage}`,
+      savedRemotely ? "success" : "warning"
+    );
   }
 }
 
