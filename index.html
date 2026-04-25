@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Idea Box</title>
+    <meta
+      name="description"
+      content="Partagez une idee pour notre future maison d'hotes."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="ambient ambient-one"></div>
+      <div class="ambient ambient-two"></div>
+
+      <header class="topbar">
+        <span class="brand" data-i18n="brand">Idea Box</span>
+        <button
+          class="lang-toggle"
+          type="button"
+          id="languageToggle"
+          aria-label="Changer la langue"
+        >
+          FR / EN
+        </button>
+      </header>
+
+      <main class="hero">
+        <section class="hero-card">
+          <p class="eyebrow" data-i18n="eyebrow">Boite a idees familiale</p>
+          <h1 data-i18n="title">Une petite boite magique pour vos envies</h1>
+          <p class="hero-copy" data-i18n="description">
+            Aidez-nous a imaginer notre future maison d'hotes. Une idee simple,
+            folle, poetique ou pratique: tout est bienvenu.
+          </p>
+
+          <button class="primary-button" id="openFormButton" type="button" data-i18n="cta">
+            Ajouter une idee
+          </button>
+        </section>
+
+        <section class="floating-ideas" aria-hidden="true">
+          <article class="ghost-card">Un grand jardin de simples et de lavande</article>
+          <article class="ghost-card">Un coin lecture avec vue sur les montagnes</article>
+          <article class="ghost-card">Des petits dejeuners maison au soleil</article>
+          <article class="ghost-card">Un carnet de balades preferees des invites</article>
+        </section>
+
+        <section class="confirmation-panel" id="confirmationPanel" hidden>
+          <p class="confirmation-kicker" data-i18n="successLabel">Derniere idee ajoutee</p>
+          <article class="idea-card" id="ideaCard">
+            <div class="idea-card-top">
+              <span class="idea-card-author" id="ideaAuthor">Anonymous</span>
+              <span class="idea-card-date" id="ideaDate"></span>
+            </div>
+            <p class="idea-card-body" id="ideaText"></p>
+            <p class="idea-card-note" id="ideaStatus"></p>
+          </article>
+          <button class="secondary-button" type="button" id="submitAnotherButton" data-i18n="submitAnother">
+            Ajouter une autre idee
+          </button>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modalBackdrop" hidden></div>
+
+    <section
+      class="modal"
+      id="ideaModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="formTitle"
+      hidden
+    >
+      <div class="modal-handle" aria-hidden="true"></div>
+      <div class="modal-header">
+        <div>
+          <p class="modal-kicker" data-i18n="formKicker">Partagez votre idee</p>
+          <h2 id="formTitle" data-i18n="formTitle">Qu'aimeriez-vous voir dans ce lieu ?</h2>
+        </div>
+        <button class="close-button" id="closeFormButton" type="button" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+      <form class="idea-form" id="ideaForm" novalidate>
+        <label class="field">
+          <span class="field-label" data-i18n="nameLabel">Votre nom (facultatif)</span>
+          <input
+            id="nameInput"
+            name="name"
+            type="text"
+            maxlength="60"
+            autocomplete="name"
+            data-i18n-placeholder="namePlaceholder"
+            placeholder="Ex. Camille"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label" data-i18n="ideaLabel">Votre idee</span>
+          <textarea
+            id="ideaInput"
+            name="idea"
+            rows="5"
+            maxlength="300"
+            required
+            data-i18n-placeholder="ideaPlaceholder"
+            placeholder="Ex. Une terrasse conviviale avec des plaids pour les soirs frais..."
+          ></textarea>
+        </label>
+
+        <div class="field-row">
+          <p class="helper-text" data-i18n="helperText">
+            Quelques mots suffisent. Votre idee peut etre simple ou ambitieuse.
+          </p>
+          <span class="counter" id="ideaCounter">0 / 300</span>
+        </div>
+
+        <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
+
+        <div class="form-actions">
+          <button class="secondary-button" id="cancelButton" type="button" data-i18n="cancel">
+            Annuler
+          </button>
+          <button class="primary-button" id="submitButton" type="submit" data-i18n="submit">
+            Envoyer l'idee
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <script src="script.js"></script>
+  </body>
+</html>
