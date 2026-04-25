@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwORES8KNeXumxvw3D6MBGYYeEogyzKTS-rr8qFVYASAFgZUgYRHN_BMzJYV9lCWJP2/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyXfP3RMrSxj_hbfBqLNhq6Im8AeK6sNofXhYdpGQVXIW2Cl173uT0owFswu9qMstnK/exec";
 const MAX_IDEA_LENGTH = 300;
 const SUBMISSION_COOLDOWN_MS = 4000;
 
