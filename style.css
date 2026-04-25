@@ -254,6 +254,46 @@ h2 {
   display: none;
 }
 
+.ideas-feed {
+  padding: 20px;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--surface-strong) 0%, rgba(255, 250, 246, 0.82) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.62);
+  box-shadow: var(--shadow);
+}
+
+.ideas-feed-header {
+  margin-bottom: 16px;
+}
+
+.ideas-feed-title {
+  font-size: clamp(1.8rem, 7vw, 2.4rem);
+}
+
+.ideas-feed-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.ideas-feed-list {
+  display: grid;
+  gap: 14px;
+}
+
+.feed-card {
+  padding: 18px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(231, 214, 205, 0.9);
+  box-shadow: var(--shadow-soft);
+}
+
+.feed-card.is-visible {
+  animation: cardPop 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .idea-card {
   padding: 18px;
   border-radius: var(--radius-lg);

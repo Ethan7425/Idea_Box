@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyczq8ITCbtgZ56YU1uOGfCghDQeHTBh6id8SnhdND32tMZCJZFdH2A4jaKBl5Bj9ji/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXj8_b89Rkj6uiFnhtxqFXeKZbu_qlqLvFPA-6Txe1n-pB_FHR8ZK6Rh2xzjVYtUkL/exec";
 const MAX_IDEA_LENGTH = 300;
 const SUBMISSION_COOLDOWN_MS = 4000;
 
@@ -11,6 +11,11 @@ const translations = {
       "Aidez-nous a imaginer notre future maison d'hotes. Une idee simple, folle, poetique ou pratique: tout est bienvenu.",
     cta: "Ajouter une idee",
     successLabel: "Derniere idee ajoutee",
+    ideasFeedLabel: "Inspiration du moment",
+    ideasFeedTitle: "Les dernieres idees partagees",
+    ideasFeedLoading: "Chargement des idees...",
+    ideasFeedEmpty: "Aucune idee enregistree pour le moment. Soyez le premier.",
+    ideasFeedError: "Impossible de charger les idees pour le moment.",
     submitAnother: "Ajouter une autre idee",
     formKicker: "Partagez votre idee",
     formTitle: "Qu'aimeriez-vous voir dans ce lieu ?",
@@ -45,6 +50,11 @@ const translations = {
       "Help us imagine our future guest house. A practical, poetic, playful, or ambitious idea: everything is welcome.",
     cta: "Add an idea",
     successLabel: "Latest idea added",
+    ideasFeedLabel: "Current inspiration",
+    ideasFeedTitle: "Recently shared ideas",
+    ideasFeedLoading: "Loading ideas...",
+    ideasFeedEmpty: "No saved ideas yet. Be the first to share one.",
+    ideasFeedError: "Unable to load ideas right now.",
     submitAnother: "Submit another idea",
     formKicker: "Share your idea",
     formTitle: "What would you love to find in this place?",
@@ -75,6 +85,7 @@ const translations = {
 const state = {
   language: "fr",
   lastSubmissionAt: 0,
+  ideas: [],
 };
 
 const elements = {
@@ -99,6 +110,8 @@ const elements = {
   ideaDate: document.getElementById("ideaDate"),
   ideaText: document.getElementById("ideaText"),
   ideaStatus: document.getElementById("ideaStatus"),
+  ideasFeedEmpty: document.getElementById("ideasFeedEmpty"),
+  ideasFeedList: document.getElementById("ideasFeedList"),
 };
 
 function detectLanguage() {
@@ -130,6 +143,7 @@ function applyTranslations() {
   elements.closeFormButton.setAttribute("aria-label", getText("closeLabel"));
   updateCounter();
   refreshConfirmationCardLabels();
+  renderIdeasFeed();
 }
 
 function toggleLanguage() {
@@ -179,6 +193,91 @@ function showConfirmationCard({ name, idea, date, warningMessage = "", successMe
   void elements.ideaCard.offsetWidth;
   elements.ideaCard.classList.add("is-visible");
   elements.confirmationPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+}
+
+function renderIdeasFeed() {
+  if (!state.ideas.length) {
+    elements.ideasFeedList.innerHTML = "";
+    elements.ideasFeedEmpty.hidden = false;
+    elements.ideasFeedEmpty.textContent = getText("ideasFeedEmpty");
+    return;
+  }
+
+  elements.ideasFeedEmpty.hidden = true;
+  elements.ideasFeedList.innerHTML = state.ideas
+    .map((entry) => {
+      const author = entry.name ? escapeHtml(entry.name) : escapeHtml(getText("anonymous"));
+      const date = entry.date ? escapeHtml(formatIdeaDate(entry.date)) : "";
+      const idea = escapeHtml(entry.idea || "");
+
+      return `
+        <article class="feed-card is-visible">
+          <div class="idea-card-top">
+            <span class="idea-card-author">${author}</span>
+            <span class="idea-card-date">${date}</span>
+          </div>
+          <p class="idea-card-body">${idea}</p>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function prependIdeaToFeed({ name, idea, date }) {
+  state.ideas = [{ name, idea, date }, ...state.ideas].slice(0, 8);
+  renderIdeasFeed();
+}
+
+async function loadIdeas() {
+  if (SCRIPT_URL.includes("PASTE_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE")) {
+    elements.ideasFeedEmpty.textContent = getText("ideasFeedEmpty");
+    return;
+  }
+
+  elements.ideasFeedEmpty.hidden = false;
+  elements.ideasFeedEmpty.textContent = getText("ideasFeedLoading");
+
+  try {
+    const response = await fetch(SCRIPT_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+    });
+    const responseText = await response.text();
+    let result;
+
+    try {
+      result = JSON.parse(responseText);
+    } catch (parseError) {
+      throw new Error(responseText || "Invalid response from Apps Script");
+    }
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to load ideas");
+    }
+
+    state.ideas = Array.isArray(result.ideas) ? result.ideas : [];
+    renderIdeasFeed();
+  } catch (error) {
+    console.error(error);
+    elements.ideasFeedList.innerHTML = "";
+    elements.ideasFeedEmpty.hidden = false;
+    elements.ideasFeedEmpty.textContent = `${getText("ideasFeedError")} ${error.message || ""}`.trim();
+  }
 }
 
 function openModal() {
@@ -280,6 +379,8 @@ async function submitIdea(event) {
         : `${getText("successLocal")} ${getText("backendErrorPrefix")}${remoteErrorMessage}`,
     });
 
+    prependIdeaToFeed({ name, idea, date });
+
     elements.form.reset();
     updateCounter();
     closeModal();
@@ -305,6 +406,7 @@ function init() {
   state.language = detectLanguage();
   applyTranslations();
   updateCounter();
+  loadIdeas();
 
   elements.languageToggle.addEventListener("click", toggleLanguage);
   elements.openFormButton.addEventListener("click", openModal);

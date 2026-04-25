@@ -1,5 +1,21 @@
 var SPREADSHEET_ID = "";
 var SHEET_NAME = "Ideas";
+var MAX_FEED_ITEMS = 8;
+
+function doGet() {
+  try {
+    var ideas = getRecentIdeas_();
+    return jsonResponse({
+      success: true,
+      ideas: ideas
+    });
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      message: error.message || "Unknown error"
+    });
+  }
+}
 
 function doPost(e) {
   try {
@@ -59,6 +75,32 @@ function getIdeasSheet_() {
   }
 
   return sheet;
+}
+
+function getRecentIdeas_() {
+  var sheet = getIdeasSheet_();
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow <= 1) {
+    return [];
+  }
+
+  var rowCount = Math.min(MAX_FEED_ITEMS, lastRow - 1);
+  var startRow = lastRow - rowCount + 1;
+  var values = sheet.getRange(startRow, 1, rowCount, 3).getValues();
+
+  return values
+    .reverse()
+    .map(function(row) {
+      return {
+        date: row[0],
+        name: row[1],
+        idea: row[2]
+      };
+    })
+    .filter(function(entry) {
+      return entry.idea;
+    });
 }
 
 function jsonResponse(payload) {
