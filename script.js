@@ -29,7 +29,7 @@ const translations = {
     formKicker: "Partagez votre idee",
     formTitle: "Qu'aimeriez-vous voir dans ce lieu ?",
     nameLabel: "Votre nom (facultatif)",
-    namePlaceholder: "Ex. Camille",
+    namePlaceholder: "Ex. Ethan",
     ideaLabel: "Votre idee",
     ideaPlaceholder:
       "Ex. Une terrasse conviviale avec des plaids pour les soirs frais...",
@@ -75,7 +75,7 @@ const translations = {
     formKicker: "Share your idea",
     formTitle: "What would you love to find in this place?",
     nameLabel: "Your name (optional)",
-    namePlaceholder: "Ex. Camille",
+    namePlaceholder: "Ex. Ethan",
     ideaLabel: "Your idea",
     ideaPlaceholder:
       "Ex. A cozy terrace with blankets for cool evenings...",
