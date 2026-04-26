@@ -102,6 +102,7 @@ const elements = {
   nameInput: document.getElementById("nameInput"),
   ideaInput: document.getElementById("ideaInput"),
   submitButton: document.getElementById("submitButton"),
+  submitButtonLabel: document.querySelector("#submitButton span"),
   formMessage: document.getElementById("formMessage"),
   ideaCounter: document.getElementById("ideaCounter"),
   confirmationPanel: document.getElementById("confirmationPanel"),
@@ -288,7 +289,7 @@ function openModal() {
     elements.modal.classList.add("is-open");
     elements.modalBackdrop.classList.add("is-visible");
   });
-  setTimeout(() => elements.ideaInput.focus(), 120);
+  setTimeout(() => elements.nameInput.focus(), 120);
 }
 
 function closeModal() {
@@ -330,7 +331,7 @@ async function submitIdea(event) {
 
   const originalSubmitText = getText("submit");
   elements.submitButton.disabled = true;
-  elements.submitButton.textContent = getText("submitting");
+  elements.submitButtonLabel.textContent = getText("submitting");
   setFormMessage("", "");
 
   let savedRemotely = false;
@@ -386,7 +387,7 @@ async function submitIdea(event) {
     closeModal();
 
     elements.submitButton.disabled = false;
-    elements.submitButton.textContent = originalSubmitText;
+    elements.submitButtonLabel.textContent = originalSubmitText;
     setFormMessage(
       savedRemotely
         ? getText("cooldownMessage")

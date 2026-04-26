@@ -98,9 +98,23 @@ body.modal-open {
 .topbar {
   width: min(100%, var(--max-width));
   margin: 0 auto 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+
+.brand-lockup {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.site-logo {
+  display: block;
+  width: min(108px, 28vw);
+  aspect-ratio: 1;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 18px rgba(121, 78, 64, 0.12));
 }
 
 .brand {
@@ -108,6 +122,7 @@ body.modal-open {
   font-size: 1.6rem;
   font-weight: 700;
   letter-spacing: 0.03em;
+  text-align: center;
 }
 
 .lang-toggle {
@@ -119,6 +134,7 @@ body.modal-open {
   box-shadow: var(--shadow-soft);
   font-size: 0.9rem;
   font-weight: 700;
+  justify-self: end;
 }
 
 .hero {
@@ -153,6 +169,23 @@ body.modal-open {
   text-transform: uppercase;
   letter-spacing: 0.18em;
   font-weight: 800;
+}
+
+.eyebrow,
+.modal-kicker,
+.confirmation-kicker,
+.primary-button {
+  display: inline-flex;
+  align-items: center;
+}
+
+.inline-logo {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  margin-right: 8px;
+  opacity: 0.8;
+  filter: drop-shadow(0 5px 10px rgba(121, 78, 64, 0.1));
 }
 
 h1,
@@ -193,6 +226,16 @@ h2 {
   color: #fff;
   background: linear-gradient(135deg, var(--primary) 0%, var(--primary-strong) 100%);
   box-shadow: 0 12px 26px rgba(216, 128, 100, 0.32);
+  justify-content: center;
+  gap: 10px;
+}
+
+.button-logo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: brightness(0) invert(1);
 }
 
 .secondary-button {
@@ -496,6 +539,10 @@ textarea:focus {
 @media (min-width: 720px) {
   .page-shell {
     padding: 26px 26px 48px;
+  }
+
+  .topbar {
+    margin-bottom: 24px;
   }
 
   .hero {
