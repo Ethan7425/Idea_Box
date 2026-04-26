@@ -108,6 +108,7 @@ const state = {
   observer: null,
   activeVoteId: null,
   userVotes: {},
+  voteAnimation: null,
 };
 
 const elements = {
@@ -229,10 +230,19 @@ function showConfirmationCard({ name, idea, date, warningMessage = "", successMe
   elements.ideaStatus.style.color = warningMessage ? "var(--warning)" : "var(--success)";
 
   elements.confirmationPanel.hidden = false;
+  elements.confirmationPanel.classList.remove("is-celebrating");
   elements.ideaCard.classList.remove("is-visible");
+  elements.ideaCard.classList.remove("is-celebrating");
   void elements.ideaCard.offsetWidth;
+  elements.confirmationPanel.classList.add("is-celebrating");
   elements.ideaCard.classList.add("is-visible");
+  elements.ideaCard.classList.add("is-celebrating");
   elements.confirmationPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  window.clearTimeout(showConfirmationCard.animationTimeout);
+  showConfirmationCard.animationTimeout = window.setTimeout(() => {
+    elements.confirmationPanel.classList.remove("is-celebrating");
+    elements.ideaCard.classList.remove("is-celebrating");
+  }, 760);
 }
 
 function escapeHtml(value) {
@@ -272,24 +282,40 @@ function renderIdeasFeed() {
       const userVote = state.userVotes[String(entry.id)] || "";
       const upSelected = userVote === "up";
       const downSelected = userVote === "down";
+      const animatedVote = state.voteAnimation && state.voteAnimation.ideaId === String(entry.id)
+        ? state.voteAnimation
+        : null;
+      const animateUp = animatedVote && animatedVote.voteType === "up";
+      const animateDown = animatedVote && animatedVote.voteType === "down";
+      const cardAnimationClass = animatedVote ? "is-vote-glow" : "";
+      const upAnimationClass = animateUp
+        ? animatedVote.mode === "remove"
+          ? "is-removing"
+          : "is-animating"
+        : "";
+      const downAnimationClass = animateDown
+        ? animatedVote.mode === "remove"
+          ? "is-removing"
+          : "is-animating"
+        : "";
 
       return `
-        <article class="feed-card is-visible" data-idea-id="${ideaId}">
+        <article class="feed-card is-visible ${cardAnimationClass}" data-idea-id="${ideaId}">
           <div class="idea-card-top">
             <span class="idea-card-author">${author}</span>
             <span class="idea-card-date">${date}</span>
           </div>
           <p class="idea-card-body">${idea}</p>
           <div class="vote-row">
-            <button class="vote-button ${upSelected ? "is-selected" : ""}" type="button" data-vote-type="up" aria-pressed="${upSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
+            <button class="vote-button ${upSelected ? "is-selected" : ""} ${upAnimationClass}" type="button" data-vote-type="up" aria-pressed="${upSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
               <span class="vote-icon" aria-hidden="true">👍</span>
               <span>${escapeHtml(getText("upvote"))}</span>
-              <span class="vote-count">${upvotes}</span>
+              <span class="vote-count ${animateUp ? "is-animating" : ""}">${upvotes}</span>
             </button>
-            <button class="vote-button ${downSelected ? "is-selected" : ""}" type="button" data-vote-type="down" aria-pressed="${downSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
+            <button class="vote-button ${downSelected ? "is-selected" : ""} ${downAnimationClass}" type="button" data-vote-type="down" aria-pressed="${downSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
               <span class="vote-icon" aria-hidden="true">👎</span>
               <span>${escapeHtml(getText("downvote"))}</span>
-              <span class="vote-count">${downvotes}</span>
+              <span class="vote-count ${animateDown ? "is-animating" : ""}">${downvotes}</span>
             </button>
           </div>
         </article>
@@ -418,6 +444,20 @@ async function sendJsonRequest(payload) {
   return result;
 }
 
+function triggerVoteAnimation(ideaId, voteType, mode) {
+  state.voteAnimation = {
+    ideaId: String(ideaId),
+    voteType,
+    mode,
+  };
+  renderIdeasFeed();
+  window.clearTimeout(triggerVoteAnimation.timeoutId);
+  triggerVoteAnimation.timeoutId = window.setTimeout(() => {
+    state.voteAnimation = null;
+    renderIdeasFeed();
+  }, 560);
+}
+
 async function handleVoteClick(event) {
   const button = event.target.closest(".vote-button");
 
@@ -458,9 +498,11 @@ async function handleVoteClick(event) {
     if (nextVote) {
       state.userVotes[ideaId] = nextVote;
       setFeedStatus(getText("voteSaved"));
+      triggerVoteAnimation(ideaId, nextVote, previousVote ? "switch" : "add");
     } else {
       delete state.userVotes[ideaId];
       setFeedStatus(getText("voteRemoved"));
+      triggerVoteAnimation(ideaId, clickedVote, "remove");
     }
 
     saveStoredVotes();
