@@ -1,6 +1,8 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxXj8_b89Rkj6uiFnhtxqFXeKZbu_qlqLvFPA-6Txe1n-pB_FHR8ZK6Rh2xzjVYtUkL/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBwyh15imKXuUM0XntXQzORmdl-wzrQFETabFszSwrMg2GABofEfwaNLJfzx27z4rJ/exec";
 const MAX_IDEA_LENGTH = 300;
 const SUBMISSION_COOLDOWN_MS = 4000;
+const IDEAS_PAGE_SIZE = 8;
+const VOTE_STORAGE_KEY = "idea-box-votes";
 
 const translations = {
   fr: {
@@ -14,8 +16,15 @@ const translations = {
     ideasFeedLabel: "Inspiration du moment",
     ideasFeedTitle: "Les dernieres idees partagees",
     ideasFeedLoading: "Chargement des idees...",
+    ideasFeedLoadingMore: "Chargement d'autres idees...",
     ideasFeedEmpty: "Aucune idee enregistree pour le moment. Soyez le premier.",
     ideasFeedError: "Impossible de charger les idees pour le moment.",
+    ideasFeedEnd: "Toutes les idees ont ete affichees.",
+    upvote: "Super",
+    downvote: "Mouai",
+    voteError: "Impossible d'enregistrer ce vote.",
+    voteSaved: "Votre vote a ete pris en compte.",
+    voteRemoved: "Votre vote a ete retire.",
     submitAnother: "Ajouter une autre idee",
     formKicker: "Partagez votre idee",
     formTitle: "Qu'aimeriez-vous voir dans ce lieu ?",
@@ -53,8 +62,15 @@ const translations = {
     ideasFeedLabel: "Current inspiration",
     ideasFeedTitle: "Recently shared ideas",
     ideasFeedLoading: "Loading ideas...",
+    ideasFeedLoadingMore: "Loading more ideas...",
     ideasFeedEmpty: "No saved ideas yet. Be the first to share one.",
     ideasFeedError: "Unable to load ideas right now.",
+    ideasFeedEnd: "All ideas are now visible.",
+    upvote: "Like",
+    downvote: "Unlike",
+    voteError: "Unable to save this vote.",
+    voteSaved: "Your vote was saved.",
+    voteRemoved: "Your vote was removed.",
     submitAnother: "Submit another idea",
     formKicker: "Share your idea",
     formTitle: "What would you love to find in this place?",
@@ -86,6 +102,12 @@ const state = {
   language: "fr",
   lastSubmissionAt: 0,
   ideas: [],
+  nextOffset: 0,
+  hasMoreIdeas: true,
+  isLoadingIdeas: false,
+  observer: null,
+  activeVoteId: null,
+  userVotes: {},
 };
 
 const elements = {
@@ -113,11 +135,28 @@ const elements = {
   ideaStatus: document.getElementById("ideaStatus"),
   ideasFeedEmpty: document.getElementById("ideasFeedEmpty"),
   ideasFeedList: document.getElementById("ideasFeedList"),
+  ideasFeedStatus: document.getElementById("ideasFeedStatus"),
+  feedSentinel: document.getElementById("feedSentinel"),
 };
 
 function detectLanguage() {
   const browserLanguage = (navigator.language || "").toLowerCase();
   return browserLanguage.startsWith("fr") ? "fr" : "en";
+}
+
+function loadStoredVotes() {
+  try {
+    const rawVotes = localStorage.getItem(VOTE_STORAGE_KEY);
+    const parsedVotes = rawVotes ? JSON.parse(rawVotes) : {};
+    return parsedVotes && typeof parsedVotes === "object" ? parsedVotes : {};
+  } catch (error) {
+    console.error(error);
+    return {};
+  }
+}
+
+function saveStoredVotes() {
+  localStorage.setItem(VOTE_STORAGE_KEY, JSON.stringify(state.userVotes));
 }
 
 function getText(key) {
@@ -214,6 +253,8 @@ function renderIdeasFeed() {
     elements.ideasFeedList.innerHTML = "";
     elements.ideasFeedEmpty.hidden = false;
     elements.ideasFeedEmpty.textContent = getText("ideasFeedEmpty");
+    elements.ideasFeedStatus.hidden = true;
+    elements.ideasFeedStatus.textContent = "";
     return;
   }
 
@@ -223,23 +264,68 @@ function renderIdeasFeed() {
       const author = entry.name ? escapeHtml(entry.name) : escapeHtml(getText("anonymous"));
       const date = entry.date ? escapeHtml(formatIdeaDate(entry.date)) : "";
       const idea = escapeHtml(entry.idea || "");
+      const upvotes = Number(entry.upvotes || 0);
+      const downvotes = Number(entry.downvotes || 0);
+      const ideaId = escapeHtml(entry.id || "");
+      const isVoting = state.activeVoteId === String(entry.id);
+      const canVote = Number.isInteger(Number(entry.id)) && !String(entry.id).startsWith("local-");
+      const userVote = state.userVotes[String(entry.id)] || "";
+      const upSelected = userVote === "up";
+      const downSelected = userVote === "down";
 
       return `
-        <article class="feed-card is-visible">
+        <article class="feed-card is-visible" data-idea-id="${ideaId}">
           <div class="idea-card-top">
             <span class="idea-card-author">${author}</span>
             <span class="idea-card-date">${date}</span>
           </div>
           <p class="idea-card-body">${idea}</p>
+          <div class="vote-row">
+            <button class="vote-button ${upSelected ? "is-selected" : ""}" type="button" data-vote-type="up" aria-pressed="${upSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
+              <span class="vote-icon" aria-hidden="true">👍</span>
+              <span>${escapeHtml(getText("upvote"))}</span>
+              <span class="vote-count">${upvotes}</span>
+            </button>
+            <button class="vote-button ${downSelected ? "is-selected" : ""}" type="button" data-vote-type="down" aria-pressed="${downSelected ? "true" : "false"}" ${(isVoting || !canVote) ? "disabled" : ""}>
+              <span class="vote-icon" aria-hidden="true">👎</span>
+              <span>${escapeHtml(getText("downvote"))}</span>
+              <span class="vote-count">${downvotes}</span>
+            </button>
+          </div>
         </article>
       `;
     })
     .join("");
+
+  if (state.hasMoreIdeas) {
+    if (state.isLoadingIdeas) {
+      elements.ideasFeedStatus.hidden = false;
+      elements.ideasFeedStatus.textContent = getText("ideasFeedLoadingMore");
+    } else {
+      elements.ideasFeedStatus.hidden = true;
+      elements.ideasFeedStatus.textContent = "";
+    }
+  } else {
+    elements.ideasFeedStatus.hidden = false;
+    elements.ideasFeedStatus.textContent = getText("ideasFeedEnd");
+  }
 }
 
-function prependIdeaToFeed({ name, idea, date }) {
-  state.ideas = [{ name, idea, date }, ...state.ideas].slice(0, 8);
+function prependIdeaToFeed(entry) {
+  state.ideas = [entry, ...state.ideas];
+  state.nextOffset += 1;
   renderIdeasFeed();
+}
+
+function setFeedStatus(message = "") {
+  if (!message) {
+    elements.ideasFeedStatus.hidden = true;
+    elements.ideasFeedStatus.textContent = "";
+    return;
+  }
+
+  elements.ideasFeedStatus.hidden = false;
+  elements.ideasFeedStatus.textContent = message;
 }
 
 async function loadIdeas() {
@@ -248,16 +334,29 @@ async function loadIdeas() {
     return;
   }
 
-  elements.ideasFeedEmpty.hidden = false;
-  elements.ideasFeedEmpty.textContent = getText("ideasFeedLoading");
+  if (state.isLoadingIdeas || !state.hasMoreIdeas) {
+    return;
+  }
+
+  state.isLoadingIdeas = true;
+
+  if (!state.ideas.length) {
+    elements.ideasFeedEmpty.hidden = false;
+    elements.ideasFeedEmpty.textContent = getText("ideasFeedLoading");
+  } else {
+    setFeedStatus(getText("ideasFeedLoadingMore"));
+  }
 
   try {
-    const response = await fetch(SCRIPT_URL, {
+    const response = await fetch(
+      `${SCRIPT_URL}?offset=${state.nextOffset}&limit=${IDEAS_PAGE_SIZE}`,
+      {
       method: "GET",
       headers: {
         Accept: "application/json",
       },
-    });
+      }
+    );
     const responseText = await response.text();
     let result;
 
@@ -271,14 +370,125 @@ async function loadIdeas() {
       throw new Error(result.message || "Unable to load ideas");
     }
 
-    state.ideas = Array.isArray(result.ideas) ? result.ideas : [];
+    const incomingIdeas = Array.isArray(result.ideas) ? result.ideas : [];
+    state.ideas = state.ideas.concat(incomingIdeas);
+    state.nextOffset += incomingIdeas.length;
+    state.hasMoreIdeas = Boolean(result.hasMore);
     renderIdeasFeed();
   } catch (error) {
     console.error(error);
-    elements.ideasFeedList.innerHTML = "";
-    elements.ideasFeedEmpty.hidden = false;
-    elements.ideasFeedEmpty.textContent = `${getText("ideasFeedError")} ${error.message || ""}`.trim();
+    if (!state.ideas.length) {
+      elements.ideasFeedList.innerHTML = "";
+      elements.ideasFeedEmpty.hidden = false;
+      elements.ideasFeedEmpty.textContent = `${getText("ideasFeedError")} ${error.message || ""}`.trim();
+    } else {
+      setFeedStatus(`${getText("ideasFeedError")} ${error.message || ""}`.trim());
+    }
+  } finally {
+    state.isLoadingIdeas = false;
+    if (state.ideas.length) {
+      renderIdeasFeed();
+    }
   }
+}
+
+async function sendJsonRequest(payload) {
+  const response = await fetch(SCRIPT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const responseText = await response.text();
+  let result;
+
+  try {
+    result = JSON.parse(responseText);
+  } catch (parseError) {
+    throw new Error(responseText || "Invalid response from Apps Script");
+  }
+
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || "Request failed");
+  }
+
+  return result;
+}
+
+async function handleVoteClick(event) {
+  const button = event.target.closest(".vote-button");
+
+  if (!button) {
+    return;
+  }
+
+  const card = button.closest("[data-idea-id]");
+
+  if (!card) {
+    return;
+  }
+
+  const ideaId = card.dataset.ideaId;
+  const clickedVote = button.dataset.voteType;
+  const entry = state.ideas.find((ideaEntry) => String(ideaEntry.id) === ideaId);
+  const previousVote = state.userVotes[ideaId] || "";
+  const nextVote = previousVote === clickedVote ? "" : clickedVote;
+
+  if (!entry || state.activeVoteId === ideaId) {
+    return;
+  }
+
+  state.activeVoteId = ideaId;
+  renderIdeasFeed();
+
+  try {
+    const result = await sendJsonRequest({
+      action: "vote",
+      ideaId,
+      previousVote,
+      nextVote,
+    });
+
+    entry.upvotes = Number(result.upvotes || 0);
+    entry.downvotes = Number(result.downvotes || 0);
+
+    if (nextVote) {
+      state.userVotes[ideaId] = nextVote;
+      setFeedStatus(getText("voteSaved"));
+    } else {
+      delete state.userVotes[ideaId];
+      setFeedStatus(getText("voteRemoved"));
+    }
+
+    saveStoredVotes();
+  } catch (error) {
+    console.error(error);
+    setFeedStatus(`${getText("voteError")} ${error.message || ""}`.trim());
+  } finally {
+    state.activeVoteId = null;
+    renderIdeasFeed();
+  }
+}
+
+function setupInfiniteScroll() {
+  if (!("IntersectionObserver" in window)) {
+    return;
+  }
+
+  state.observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        loadIdeas();
+      }
+    });
+  }, {
+    rootMargin: "180px 0px",
+  });
+
+  state.observer.observe(elements.feedSentinel);
 }
 
 function openModal() {
@@ -342,29 +552,21 @@ async function submitIdea(event) {
       throw new Error("Missing Apps Script URL");
     }
 
-    const response = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ name, idea, date }),
+    const result = await sendJsonRequest({
+      action: "submitIdea",
+      name,
+      idea,
+      date,
     });
-
-    const responseText = await response.text();
-    let result;
-
-    try {
-      result = JSON.parse(responseText);
-    } catch (parseError) {
-      throw new Error(responseText || "Invalid response from Apps Script");
-    }
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Request failed");
-    }
-
     savedRemotely = true;
+    prependIdeaToFeed({
+      id: result.ideaId,
+      name,
+      idea,
+      date,
+      upvotes: 0,
+      downvotes: 0,
+    });
   } catch (error) {
     console.error(error);
     remoteErrorMessage = error.message || getText("errorGeneric");
@@ -380,7 +582,16 @@ async function submitIdea(event) {
         : `${getText("successLocal")} ${getText("backendErrorPrefix")}${remoteErrorMessage}`,
     });
 
-    prependIdeaToFeed({ name, idea, date });
+    if (!savedRemotely) {
+      prependIdeaToFeed({
+        id: `local-${Date.now()}`,
+        name,
+        idea,
+        date,
+        upvotes: 0,
+        downvotes: 0,
+      });
+    }
 
     elements.form.reset();
     updateCounter();
@@ -405,8 +616,10 @@ function handleKeydown(event) {
 
 function init() {
   state.language = detectLanguage();
+  state.userVotes = loadStoredVotes();
   applyTranslations();
   updateCounter();
+  setupInfiniteScroll();
   loadIdeas();
 
   elements.languageToggle.addEventListener("click", toggleLanguage);
@@ -416,6 +629,7 @@ function init() {
   elements.cancelButton.addEventListener("click", closeModal);
   elements.modalBackdrop.addEventListener("click", closeModal);
   elements.ideaInput.addEventListener("input", updateCounter);
+  elements.ideasFeedList.addEventListener("click", handleVoteClick);
   elements.form.addEventListener("submit", submitIdea);
   document.addEventListener("keydown", handleKeydown);
 }
