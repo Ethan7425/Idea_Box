@@ -556,17 +556,21 @@ h2 {
 .modal-backdrop {
   position: fixed;
   inset: 0;
+  z-index: 10;
   background: rgba(76, 47, 40, 0.24);
   opacity: 0;
+  pointer-events: none;
   transition: opacity 220ms ease;
 }
 
 .modal-backdrop.is-visible {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .modal {
   position: fixed;
+  z-index: 11;
   left: 0;
   right: 0;
   bottom: 0;
@@ -586,7 +590,7 @@ h2 {
 
 .modal[hidden],
 .modal-backdrop[hidden] {
-  display: block;
+  display: none;
   visibility: hidden;
 }
 

@@ -666,7 +666,9 @@ function init() {
   setupInfiniteScroll();
   loadIdeas();
 
-  elements.languageToggle.addEventListener("click", toggleLanguage);
+  if (elements.languageToggle) {
+    elements.languageToggle.addEventListener("click", toggleLanguage);
+  }
   elements.openFormButton.addEventListener("click", openModal);
   elements.submitAnotherButton.addEventListener("click", openModal);
   elements.closeFormButton.addEventListener("click", closeModal);
