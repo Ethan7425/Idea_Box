@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Livre d'or</title>
+    <meta
+      name="description"
+      content="Laissez un message et une photo dans le livre d'or."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../style.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <div class="ambient ambient-one"></div>
+      <div class="ambient ambient-two"></div>
+
+      <header class="topbar">
+        <div class="brand-lockup">
+          <img
+            class="site-logo"
+            src="../images/logo.png"
+            alt="Livre d'or logo"
+          />
+          <span class="brand">Livre d'or</span>
+        </div>
+        <nav class="topbar-actions" aria-label="Navigation secondaire">
+          <a class="nav-link" href="../index.html">Idea Box</a>
+        </nav>
+      </header>
+
+      <main class="hero livredor-layout">
+        <section class="hero-card">
+          <p class="eyebrow">
+            <img class="inline-logo" src="../images/logo.png" alt="" aria-hidden="true" />
+            Souvenirs et messages
+          </p>
+          <h1>Laissez une trace de votre passage</h1>
+          <p class="hero-copy">
+            Un mot, une pensee, une photo, un souvenir: tout ce qui compte peut
+            vivre ici, simplement.
+          </p>
+        </section>
+
+        <section class="livredor-form-panel">
+          <p class="modal-kicker">
+            <img class="inline-logo" src="../images/logo.png" alt="" aria-hidden="true" />
+            Ajouter au livre d'or
+          </p>
+          <form class="livredor-form" id="livredorForm" novalidate>
+            <label class="field">
+              <span class="field-label">Votre nom</span>
+              <input
+                id="guestNameInput"
+                name="name"
+                type="text"
+                maxlength="60"
+                autocomplete="name"
+                required
+                placeholder="Ex. Ethan"
+              />
+            </label>
+
+            <label class="field">
+              <span class="field-label">Votre message</span>
+              <textarea
+                id="guestMessageInput"
+                name="message"
+                rows="5"
+                maxlength="2000"
+                required
+                placeholder="Ex. Merci pour ce moment, on gardera un souvenir lumineux de ce passage..."
+              ></textarea>
+            </label>
+
+            <div class="field-row">
+              <p class="helper-text">
+                Vous pouvez ajouter plusieurs photos avec votre message.
+              </p>
+              <span class="counter" id="guestMessageCounter">0 / 2000</span>
+            </div>
+
+            <label class="field">
+              <span class="field-label">Photos (facultatif)</span>
+              <input
+                class="photo-input"
+                id="guestPhotoInput"
+                name="photo"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+              />
+            </label>
+
+            <div class="photo-preview-grid" id="guestPhotoPreview" hidden></div>
+
+            <p class="form-message" id="guestFormMessage" role="status" aria-live="polite"></p>
+
+            <div class="form-actions">
+              <button class="primary-button" id="guestSubmitButton" type="submit">
+                <img class="button-logo" src="../images/logo.png" alt="" aria-hidden="true" />
+                <span>Envoyer le message</span>
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <section class="ideas-feed" id="livredorFeedSection">
+          <div class="ideas-feed-header">
+            <p class="confirmation-kicker">
+              <img class="inline-logo" src="../images/logo.png" alt="" aria-hidden="true" />
+              Messages partages
+            </p>
+            <h2 class="ideas-feed-title">Les derniers mots du livre d'or</h2>
+          </div>
+          <p class="ideas-feed-empty" id="livredorFeedEmpty">
+            Chargement du livre d'or...
+          </p>
+          <div class="ideas-feed-list" id="livredorFeedList"></div>
+          <p class="ideas-feed-status" id="livredorFeedStatus" hidden></p>
+        </section>
+      </main>
+    </div>
+
+    <script src="../livredor.js"></script>
+  </body>
+</html>

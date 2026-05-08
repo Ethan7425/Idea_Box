@@ -1,14 +1,40 @@
 var SPREADSHEET_ID = "";
 var SHEET_NAME = "Ideas";
+var LIVREDOR_SHEET_NAME = "LivreDor";
+var LIVREDOR_PHOTO_FOLDER_NAME = "LivreDor Photos";
 var DEFAULT_PAGE_SIZE = 8;
 var DATE_COLUMN = 1;
 var NAME_COLUMN = 2;
 var IDEA_COLUMN = 3;
 var UPVOTES_COLUMN = 4;
 var DOWNVOTES_COLUMN = 5;
+var LIVREDOR_MESSAGE_COLUMN = 3;
+var LIVREDOR_PHOTO_URLS_COLUMN = 4;
+var LIVREDOR_PHOTO_FILE_IDS_COLUMN = 5;
+var LIVREDOR_DISPLAY_COLUMN = 6;
+var API_VERSION = "livredor-2026-05-08-2";
+var MAX_LIVREDOR_PHOTO_COUNT = 6;
+var MAX_LIVREDOR_MESSAGE_LENGTH = 2000;
 
 function doGet(e) {
   try {
+    var action = (e && e.parameter && e.parameter.action || "ideas").toString();
+    if (action === "version") {
+      return jsonResponse({
+        success: true,
+        version: API_VERSION,
+        supportsLivredor: true
+      });
+    }
+
+    if (action === "livredor") {
+      var livredorLimit = getPositiveInteger_(e && e.parameter && e.parameter.limit, 30);
+      return jsonResponse({
+        success: true,
+        entries: getLivredorEntries_(livredorLimit)
+      });
+    }
+
     var offset = getPositiveInteger_(e && e.parameter && e.parameter.offset, 0);
     var limit = getPositiveInteger_(e && e.parameter && e.parameter.limit, DEFAULT_PAGE_SIZE);
     var payload = getIdeasPage_(offset, limit);
@@ -39,6 +65,9 @@ function doPost(e) {
     var action = (data.action || "submitIdea").toString();
     if (action === "vote") {
       return handleVote_(data);
+    }
+    if (action === "submitLivredor" || isLivredorPayload_(data)) {
+      return handleLivredorSubmission_(data);
     }
 
     var name = (data.name || "").toString().trim();
@@ -80,6 +109,11 @@ function parseRequestBody_(contents) {
   return JSON.parse(contents);
 }
 
+function isLivredorPayload_(data) {
+  return Object.prototype.hasOwnProperty.call(data, "message") ||
+    Object.prototype.hasOwnProperty.call(data, "photo");
+}
+
 function getIdeasSheet_() {
   var spreadsheet = SPREADSHEET_ID
     ? SpreadsheetApp.openById(SPREADSHEET_ID)
@@ -91,6 +125,33 @@ function getIdeasSheet_() {
   }
 
   return sheet;
+}
+
+function getLivredorSheet_() {
+  var spreadsheet = SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName(LIVREDOR_SHEET_NAME);
+
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(LIVREDOR_SHEET_NAME);
+  }
+
+  ensureLivredorHeaders_(sheet);
+  return sheet;
+}
+
+function ensureLivredorHeaders_(sheet) {
+  var headers = ["Date", "Name", "Message", "PhotoUrls", "PhotoFileIds", "Display"];
+  var currentHeaders = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
+
+  headers.forEach(function(header, index) {
+    if (!currentHeaders[index]) {
+      sheet.getRange(1, index + 1).setValue(header);
+    }
+  });
+
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold");
 }
 
 function getIdeasPage_(offset, limit) {
@@ -209,6 +270,211 @@ function handleVote_(data) {
   }
 }
 
+function handleLivredorSubmission_(data) {
+  var name = (data.name || "").toString().trim();
+  var message = (data.message || "").toString().trim();
+  var date = (data.date || new Date().toISOString()).toString();
+  var photos = normalizeLivredorPhotos_(data);
+
+  if (!name) {
+    return jsonResponse({
+      success: false,
+      message: "Name is required"
+    });
+  }
+
+  if (!message) {
+    return jsonResponse({
+      success: false,
+      message: "Message is required"
+    });
+  }
+
+  if (message.length > MAX_LIVREDOR_MESSAGE_LENGTH) {
+    return jsonResponse({
+      success: false,
+      message: "Message must be " + MAX_LIVREDOR_MESSAGE_LENGTH + " characters or fewer"
+    });
+  }
+
+  var photoFiles = saveLivredorPhotos_(photos);
+  var photoUrls = photoFiles.map(function(file) {
+    return getPublicDriveImageUrl_(file.getId());
+  });
+  var photoFileIds = photoFiles.map(function(file) {
+    return file.getId();
+  });
+  var sheet = getLivredorSheet_();
+  var entryRow = getNextLivredorRow_(sheet);
+
+  sheet
+    .getRange(entryRow, 1, 1, LIVREDOR_DISPLAY_COLUMN)
+    .setValues([[date, name, message, JSON.stringify(photoUrls), JSON.stringify(photoFileIds), true]]);
+  sheet.getRange(entryRow, LIVREDOR_DISPLAY_COLUMN).insertCheckboxes().setValue(true);
+
+  return jsonResponse({
+    success: true,
+    message: "Livre d'or entry saved",
+    entryId: entryRow,
+    photoUrls: photoUrls
+  });
+}
+
+function getLivredorEntries_(limit) {
+  var sheet = getLivredorSheet_();
+  var lastEntryRow = getLastLivredorEntryRow_(sheet);
+  var totalEntries = Math.max(lastEntryRow - 1, 0);
+
+  if (!totalEntries) {
+    return [];
+  }
+
+  var safeLimit = Math.min(Math.max(limit, 1), 50);
+  var values = sheet.getRange(2, 1, totalEntries, LIVREDOR_DISPLAY_COLUMN).getValues();
+  return values
+    .map(function(row, index) {
+      return {
+        id: index + 2,
+        date: row[DATE_COLUMN - 1],
+        name: row[NAME_COLUMN - 1],
+        message: row[LIVREDOR_MESSAGE_COLUMN - 1],
+        photoUrl: getFirstLivredorPhotoUrl_(row[LIVREDOR_PHOTO_URLS_COLUMN - 1]),
+        photoUrls: parseLivredorPhotoUrls_(row[LIVREDOR_PHOTO_URLS_COLUMN - 1]),
+        display: row[LIVREDOR_DISPLAY_COLUMN - 1]
+      };
+    })
+    .filter(function(entry) {
+      return entry.message && shouldDisplayLivredorEntry_(entry.display);
+    })
+    .reverse()
+    .slice(0, safeLimit);
+}
+
+function shouldDisplayLivredorEntry_(value) {
+  if (value === true) {
+    return true;
+  }
+
+  return value.toString().toLowerCase() === "true";
+}
+
+function normalizeLivredorPhotos_(data) {
+  if (Array.isArray(data.photos)) {
+    return data.photos.filter(function(photo) {
+      return photo && photo.data;
+    });
+  }
+
+  if (data.photo && data.photo.data) {
+    return [data.photo];
+  }
+
+  return [];
+}
+
+function saveLivredorPhotos_(photos) {
+  if (photos.length > MAX_LIVREDOR_PHOTO_COUNT) {
+    throw new Error("Too many photos");
+  }
+
+  return photos.map(function(photo) {
+    return saveLivredorPhoto_(photo);
+  });
+}
+
+function getNextLivredorRow_(sheet) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows <= 1) {
+    return 2;
+  }
+
+  var messages = sheet.getRange(2, LIVREDOR_MESSAGE_COLUMN, maxRows - 1, 1).getValues();
+  for (var index = 0; index < messages.length; index += 1) {
+    if (!messages[index][0]) {
+      return index + 2;
+    }
+  }
+
+  return maxRows + 1;
+}
+
+function getLastLivredorEntryRow_(sheet) {
+  var maxRows = sheet.getMaxRows();
+  if (maxRows <= 1) {
+    return 1;
+  }
+
+  var messages = sheet.getRange(2, LIVREDOR_MESSAGE_COLUMN, maxRows - 1, 1).getValues();
+  for (var index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index][0]) {
+      return index + 2;
+    }
+  }
+
+  return 1;
+}
+
+function parseLivredorPhotoUrls_(value) {
+  if (!value) {
+    return [];
+  }
+
+  var stringValue = value.toString();
+  if (stringValue.charAt(0) !== "[") {
+    return [stringValue];
+  }
+
+  try {
+    var parsed = JSON.parse(stringValue);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+  } catch (error) {
+    return [stringValue];
+  }
+}
+
+function getFirstLivredorPhotoUrl_(value) {
+  var urls = parseLivredorPhotoUrls_(value);
+  return urls.length ? urls[0] : "";
+}
+
+function saveLivredorPhoto_(photo) {
+  var mimeType = (photo.mimeType || "").toString();
+  var fileName = (photo.name || "livre-dor-photo").toString();
+
+  if (!mimeType.match(/^image\/(png|jpe?g|webp)$/)) {
+    throw new Error("Photo must be a PNG, JPEG, or WebP image");
+  }
+
+  var bytes = Utilities.base64Decode(photo.data);
+  if (bytes.length > 4 * 1024 * 1024) {
+    throw new Error("Photo must be smaller than 4 MB");
+  }
+
+  var blob = Utilities.newBlob(bytes, mimeType, sanitizeFileName_(fileName));
+  var folder = getLivredorPhotoFolder_();
+  var file = folder.createFile(blob);
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  return file;
+}
+
+function getLivredorPhotoFolder_() {
+  var folders = DriveApp.getFoldersByName(LIVREDOR_PHOTO_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+
+  return DriveApp.createFolder(LIVREDOR_PHOTO_FOLDER_NAME);
+}
+
+function getPublicDriveImageUrl_(fileId) {
+  return "https://drive.google.com/uc?export=view&id=" + encodeURIComponent(fileId);
+}
+
+function sanitizeFileName_(fileName) {
+  return fileName.replace(/[\\/:*?"<>|]/g, "-").slice(0, 120) || "livre-dor-photo";
+}
+
 function normalizeVoteType_(value) {
   if (!value) {
     return "";
@@ -235,4 +501,8 @@ function jsonResponse(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function authorizeDrive() {
+  getLivredorPhotoFolder_();
 }

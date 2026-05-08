@@ -1,4 +1,4 @@
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwBwyh15imKXuUM0XntXQzORmdl-wzrQFETabFszSwrMg2GABofEfwaNLJfzx27z4rJ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzkOPozx7s8whnG4SFJVEQx-MtveuzkKQVfb-E_7P-74dzCuW2ty0SlSG5HjyOtL3AF/exec";
 const MAX_IDEA_LENGTH = 300;
 const SUBMISSION_COOLDOWN_MS = 4000;
 const IDEAS_PAGE_SIZE = 8;
@@ -12,6 +12,7 @@ const translations = {
     description:
       "Aidez-nous a imaginer notre future maison d'hotes. Une idee simple, folle, poetique ou pratique: tout est bienvenu.",
     cta: "Ajouter une idee",
+    guestbookLink: "Ouvrir le livre d'or",
     successLabel: "Derniere idee ajoutee",
     ideasFeedLabel: "Inspiration du moment",
     ideasFeedTitle: "Les dernieres idees partagees",
@@ -58,6 +59,7 @@ const translations = {
     description:
       "Help us imagine our future guest house. A practical, poetic, playful, or ambitious idea: everything is welcome.",
     cta: "Add an idea",
+    guestbookLink: "Open the guestbook",
     successLabel: "Latest idea added",
     ideasFeedLabel: "Current inspiration",
     ideasFeedTitle: "Recently shared ideas",
